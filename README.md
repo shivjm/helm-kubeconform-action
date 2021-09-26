@@ -1,5 +1,17 @@
-# Container Action Template
+# Helm Kubeconform Action
 
-To get started, click the `Use this template` button on this repository [which will create a new repository based on this template](https://github.blog/2019-06-06-generate-new-repositories-with-repository-templates/).
+A GitHub Action to validate Helm charts with Kubeconform.
 
-For info on how to build your first Container action, see the [toolkit docs folder](https://github.com/actions/toolkit/blob/master/docs/container-action.md).
+## Usage
+
+TODO.
+
+## Rationale
+
+I needed an action to validate some Helm charts.
+nlamirault/helm-kubeconform-action doesn’t offer enough flexibility
+and [downloads two Git repositories during
+execution](https://github.com/nlamirault/helm-kubeconform-action/blob/d29c4d227a42190dae7b25e668a267539d68a6ce/entrypoint.sh#L31-L51).
+It was a good opportunity to write some bad Go and dip my toes into
+the world of writing GitHub Actions—specifically, [a Docker container
+action](https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action).
