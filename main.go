@@ -2,66 +2,61 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"reflect"
+
+	"github.com/joho/godotenv"
+	"github.com/caarlos0/env/v6"
 )
 
 const (
 	TestsPath = "tests"
 )
 
+type Path struct {
+	path string
+}
+
+type Config struct {
+	Strict                bool   `env:"KUBECONFORM_STRICT" envDefault:"true"`
+	KubernetesSchemaPath  Path   `env:"KUBERNETES_SCHEMA_PATH"`
+	AdditionalSchemaPaths []Path `env:"ADDITIONAL_SCHEMA_PATHS" envSeparator:"\n"`
+	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
+	Kubeconform           Path   `env:"KUBECONFORM"`
+	Helm                  Path   `env:"HELM"`
+	OutputFormat          string `env:"OUTPUT_FORMAT"`
+}
+
 func main() {
-	strict, err := strconv.ParseBool(env("KUBECONFORM_STRICT"))
+	godotenv.Load()
 
-	if err != nil {
-		log.Fatal("KUBECONFORM_STRICT must be `true` or `false`")
+	cfg := Config{}
+
+	if err := env.ParseWithFuncs(&cfg, map[reflect.Type]env.ParserFunc{
+		reflect.TypeOf(Path{}): parsePath,
+	}); err != nil {
+		log.Fatalf("%+v\n", err)
 	}
 
-	rawKubernetesSchemaPath, err := filepath.Abs(env("KUBERNETES_SCHEMA_PATH"))
-
-	if err != nil {
-		log.Fatal("KUBERNETES_SCHEMA_PATH must be a valid path")
-	}
-
-	kubernetesSchemaPath := filepath.Join(rawKubernetesSchemaPath, "{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}", "{{ .ResourceKind }}{{ .KindSuffix }}.json")
-
-	additionalSchemaPaths, err := parseLocations(env("ADDITIONAL_SCHEMA_PATHS"))
-
-	if err != nil {
-		log.Fatalf("ADDITIONAL_SCHEMA_PATHS must be a valid list of paths: %s", err)
-	}
-
-	chartsDirectory, err := filepath.Abs(env("HELM_CHARTS_DIRECTORY"))
-
-	if err != nil {
-		log.Fatal("HELM_CHARTS_DIRECTORY must be a valid path")
-	}
-
-	kubeconformPath, err := filepath.Abs(env("KUBECONFORM_PATH"))
-
-	if err != nil {
-		log.Fatal("KUBECONFORM_PATH must be a valid path")
-	}
-
-	outputFormat := env("KUBECONFORM_OUTPUT_FORMAT")
-
-	helmPath, err := filepath.Abs(env("HELM_PATH"))
-
-	if err != nil {
-		log.Fatalf("HELM_PATH must be a valid path")
-	}
+	kubernetesSchemaPath := filepath.Join(cfg.KubernetesSchemaPath.path, "{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}", "{{ .ResourceKind }}{{ .KindSuffix }}.json")
 
 	// to use kubeconform as a library would need us to practically
 	// reimplement its CLI
 	// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 	// so instead we shell out to it
 
-	feErr := foreachChart(chartsDirectory, func(base string) error {
+	additionalSchemaPaths := []string{}
+
+	for _, path := range cfg.AdditionalSchemaPaths {
+		additionalSchemaPaths = append(additionalSchemaPaths, path.path)
+	}
+
+	feErr := foreachChart(cfg.ChartsDirectory.path, func(base string) error {
 		valuesFiles, err := os.ReadDir(filepath.Join(base, TestsPath))
 
 		if err != nil {
@@ -70,14 +65,14 @@ func main() {
 
 		for _, file := range valuesFiles {
 			log.Printf("Validating chart %s with values file %s...\n", filepath.Base(base), file.Name())
-			manifests, err := runHelm(helmPath, base, file.Name())
+			manifests, err := runHelm(cfg.Helm.path, base, file.Name())
 
 			if err != nil {
 				fmt.Printf("Could not run Helm: %s\nStdout: %s\n", err, manifests.String())
 				return err
 			}
 
-			output, err := runKubeconform(manifests, kubeconformPath, kubernetesSchemaPath, strict, outputFormat, additionalSchemaPaths)
+			output, err := runKubeconform(manifests, cfg.Kubeconform.path, kubernetesSchemaPath, cfg.Strict, cfg.OutputFormat, additionalSchemaPaths)
 
 			fmt.Println(output)
 
@@ -92,24 +87,6 @@ func main() {
 	if feErr != nil {
 		log.Fatalf("Validation failed: %s", feErr)
 	}
-}
-
-func parseLocations(s string) ([]string, error) {
-	raw := lines(s)
-
-	parsed := []string{}
-
-	for _, line := range raw {
-		p, err := filepath.Abs(line)
-
-		if err != nil {
-			return parsed, err
-		}
-
-		parsed = append(parsed, p)
-	}
-
-	return parsed, nil
 }
 
 func foreachChart(path string, fn func(path string) error) error {
@@ -188,7 +165,6 @@ func kubeconformArgs(kubernetesSchemaPath string, strict bool, outputFormat stri
 		"-schema-location",
 		kubernetesSchemaPath,
 		"-summary",
-		"-verbose",
 	}
 
 	if strict {
@@ -208,10 +184,16 @@ func kubeconformArgs(kubernetesSchemaPath string, strict bool, outputFormat stri
 	return args
 }
 
-func env(s string) string {
-	return os.Getenv(s)
-}
+func parsePath(v string) (interface{}, error) {
+	if v == "" {
+		return nil, errors.New("No path specified")
+	}
 
-func lines(s string) []string {
-	return strings.Split(s, "\n")
+	parsed, err := filepath.Abs(v)
+
+	if err != nil {
+		return Path{}, err
+	}
+
+	return Path{path: parsed}, nil
 }
