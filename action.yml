@@ -1,12 +1,21 @@
-name: 'Container Action Template'
-description: 'Get started with Container actions'
-author: 'GitHub'
-inputs: 
-  myInput:
-    description: 'Input to use'
-    default: 'world'
+name: "Helm Kubeconform"
+description: "Generate manifests with `helm template` and run `kubeconform` on the results"
+author: "Shiv Jha-Mathur"
+inputs:
+  strict:
+    description: "Whether to enable strict mode"
+    default: "true"
+  additionalSchemaPaths:
+    description: "Newline-separated list of paths to look for schemas under, including filename template"
+    default: ""
+  chartsDirectory:
+    description: "Directory to search for chart directories under"
+    required: true
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.myInput }}
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    KUBECONFORM_STRICT: "${{ inputs.strict }}"
+    ADDITIONAL_SCHEMA_PATHS: "${{ github.workspace }}/${{ inputs.additionalSchemaPaths }}"
+    CHARTS_DIRECTORY: "${{ github.workspace }}/${{ inputs.chartsDirectory }}"
+  args: []

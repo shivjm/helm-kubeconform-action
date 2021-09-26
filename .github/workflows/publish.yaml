@@ -1,0 +1,47 @@
+name: Build and publish to ghcr.io
+
+on:
+  - push
+  - pull_request
+
+env:
+  image: ghcr.io/shivjm/helm-kubeconform-action
+  go: "1.16.5"
+  helm: "v3.7.0"
+  schema: "master"
+  kubeconform: "v0.4.11"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: ${{ env.image }}
+          labels: |
+            tools.helm.version=${{ env.helm }}
+            tools.kubeconform.version=${{ env.kubeconform }}
+            kubernetes.schema.version=${{ env.schema }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          cache-from: type=registry,ref=${{ env.image }}
+          cache-to: type=inline
+          build-args: |
+            GO_VERSION=${{ env.go }}
+            KUBECONFORM_VERSION=${{ env.kubeconform }}
+            HELM_VERSION=${{ env.helm }}
+            SCHEMA_REVISION=${{ env.schema }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}"
