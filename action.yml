@@ -19,4 +19,5 @@ runs:
     KUBECONFORM_STRICT: "${{ inputs.strict }}"
     ADDITIONAL_SCHEMA_PATHS: "${{ inputs.additionalSchemaPaths }}"
     CHARTS_DIRECTORY: "${{ inputs.chartsDirectory }}"
+    HELM_UPDATE_DEPENDENCIES: "true"
   args: []
