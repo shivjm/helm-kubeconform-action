@@ -10,6 +10,7 @@ inputs:
     default: ""
   chartsDirectory:
     description: "Directory to search for chart directories under"
+    default: "charts"
     required: true
 runs:
   using: "docker"
