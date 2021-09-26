@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 
-	"github.com/joho/godotenv"
 	"github.com/caarlos0/env/v6"
+	"github.com/joho/godotenv"
+	_ "github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 )
 
 const (
@@ -34,21 +37,19 @@ type Config struct {
 
 func main() {
 	godotenv.Load()
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
 	cfg := Config{}
 
 	if err := env.ParseWithFuncs(&cfg, map[reflect.Type]env.ParserFunc{
 		reflect.TypeOf(Path{}): parsePath,
 	}); err != nil {
-		log.Fatalf("%+v\n", err)
+		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
+		return
 	}
 
 	kubernetesSchemaPath := filepath.Join(cfg.KubernetesSchemaPath.path, "{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}", "{{ .ResourceKind }}{{ .KindSuffix }}.json")
-
-	// to use kubeconform as a library would need us to practically
-	// reimplement its CLI
-	// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
-	// so instead we shell out to it
 
 	additionalSchemaPaths := []string{}
 
@@ -56,25 +57,42 @@ func main() {
 		additionalSchemaPaths = append(additionalSchemaPaths, path.path)
 	}
 
-	feErr := foreachChart(cfg.ChartsDirectory.path, func(base string) error {
+	feErr := run(cfg, kubernetesSchemaPath, additionalSchemaPaths)
+
+	if feErr != nil {
+		log.Fatal().Stack().Err(feErr).Msgf("Validation failed: %s", feErr)
+		return
+	}
+}
+
+func run(cfg Config, kubernetesSchemaPath string, additionalSchemaPaths []string) error {
+	return foreachChart(cfg.ChartsDirectory.path, func(base string) error {
+		logger := log.With().Str("chart", filepath.Base(base)).Logger()
 		valuesFiles, err := os.ReadDir(filepath.Join(base, TestsPath))
 
 		if err != nil {
+			logger.Error().Stack().Err(err).Msgf("Could not open directory %s", base)
 			return err
 		}
 
 		for _, file := range valuesFiles {
-			log.Printf("Validating chart %s with values file %s...\n", filepath.Base(base), file.Name())
-			manifests, err := runHelm(cfg.Helm.path, base, file.Name())
+			name := file.Name()
+			fileLogger := logger.With().Str("file", name).Logger()
+			fileLogger.Printf("Validating chart %s with values file %s...\n", filepath.Base(base), name)
+			manifests, err := runHelm(cfg.Helm.path, base, name)
 
 			if err != nil {
-				fmt.Printf("Could not run Helm: %s\nStdout: %s\n", err, manifests.String())
+				fileLogger.Printf("Could not run Helm: %s\nStdout: %s\n", err, manifests.String())
 				return err
 			}
 
-			output, err := runKubeconform(manifests, cfg.Kubeconform.path, kubernetesSchemaPath, cfg.Strict, cfg.OutputFormat, additionalSchemaPaths)
+			// to use kubeconform as a library would need us to practically
+			// reimplement its CLI
+			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
+			// so instead we shell out to it
+			output, err := runKubeconform(manifests, cfg.Kubeconform.path, kubernetesSchemaPath, cfg.Strict, additionalSchemaPaths)
 
-			fmt.Println(output)
+			fileLogger.Info().Msgf("Output: %s", output)
 
 			if err != nil {
 				return err
@@ -83,10 +101,6 @@ func main() {
 
 		return nil
 	})
-
-	if feErr != nil {
-		log.Fatalf("Validation failed: %s", feErr)
-	}
 }
 
 func foreachChart(path string, fn func(path string) error) error {
@@ -98,7 +112,7 @@ func foreachChart(path string, fn func(path string) error) error {
 
 	for _, file := range files {
 		if !file.IsDir() {
-			return fmt.Errorf("Non-directory file in charts directory: %s", file.Name())
+			return errors.New(fmt.Sprintf("Non-directory file in charts directory: %s", file.Name()))
 		}
 
 		p := filepath.Join(path, file.Name())
@@ -131,8 +145,8 @@ func helmCommand(path string, directory string, valuesFile string) *exec.Cmd {
 	return exec.Command(path, "template", "release", directory, "-f", valuesFile)
 }
 
-func runKubeconform(manifests bytes.Buffer, path string, kubernetesSchemaPath string, strict bool, outputFormat string, additionalSchemaPaths []string) (string, error) {
-	cmd := kubeconformCommand(path, kubernetesSchemaPath, strict, outputFormat, additionalSchemaPaths)
+func runKubeconform(manifests bytes.Buffer, path string, kubernetesSchemaPath string, strict bool, additionalSchemaPaths []string) (string, error) {
+	cmd := kubeconformCommand(path, kubernetesSchemaPath, strict, additionalSchemaPaths)
 
 	stdin, err := cmd.StdinPipe()
 
@@ -156,11 +170,11 @@ func runKubeconform(manifests bytes.Buffer, path string, kubernetesSchemaPath st
 	return string(output[:]), err
 }
 
-func kubeconformCommand(path string, kubernetesSchemaPath string, strict bool, outputFormat string, additionalSchemaPaths []string) *exec.Cmd {
-	return exec.Command(path, kubeconformArgs(kubernetesSchemaPath, strict, outputFormat, additionalSchemaPaths)...)
+func kubeconformCommand(path string, kubernetesSchemaPath string, strict bool, additionalSchemaPaths []string) *exec.Cmd {
+	return exec.Command(path, kubeconformArgs(kubernetesSchemaPath, strict, additionalSchemaPaths)...)
 }
 
-func kubeconformArgs(kubernetesSchemaPath string, strict bool, outputFormat string, additionalSchemaPaths []string) []string {
+func kubeconformArgs(kubernetesSchemaPath string, strict bool, additionalSchemaPaths []string) []string {
 	args := []string{
 		"-schema-location",
 		kubernetesSchemaPath,
@@ -169,11 +183,6 @@ func kubeconformArgs(kubernetesSchemaPath string, strict bool, outputFormat stri
 
 	if strict {
 		args = append(args, "-strict")
-	}
-
-	if outputFormat != "" {
-		args = append(args, "-output")
-		args = append(args, outputFormat)
 	}
 
 	for _, location := range additionalSchemaPaths {
