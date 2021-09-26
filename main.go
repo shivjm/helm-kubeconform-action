@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/joho/godotenv"
@@ -197,6 +198,10 @@ func kubeconformArgs(strict bool, additionalSchemaPaths []string) []string {
 	}
 
 	for _, location := range additionalSchemaPaths {
+		if location == "" {
+			continue
+		}
+
 		args = append(args, "-schema-location")
 		args = append(args, location)
 	}
@@ -204,9 +209,11 @@ func kubeconformArgs(strict bool, additionalSchemaPaths []string) []string {
 	return args
 }
 
-func parsePath(v string) (interface{}, error) {
+func parsePath(raw string) (interface{}, error) {
+	v := strings.TrimSpace(raw)
+
 	if v == "" {
-		return nil, errors.New("No path specified")
+		return Path{path: ""}, nil
 	}
 
 	parsed, err := filepath.Abs(v)
