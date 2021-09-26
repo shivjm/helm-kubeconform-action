@@ -20,8 +20,6 @@ ARG SCHEMA_REVISION=master
 
 RUN apk add -q --no-cache curl
 
-RUN cd / && curl -sSL https://github.com/yannh/kubernetes-json-schema/archive/$SCHEMA_REVISION.zip | unzip - && mv /kubernetes-json-schema-$SCHEMA_REVISION /kubernetes-json-schema
-
 # https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz
 RUN mkdir /helm && cd /helm && curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xzf -
 
@@ -35,12 +33,8 @@ COPY --from=kubeconform /kubeconform /kubeconform
 
 COPY --from=downloader /helm/linux-amd64/helm /helm
 
-COPY --from=downloader /kubernetes-json-schema /kubernetes-json-schema
-
 ENV KUBECONFORM=/kubeconform
 
 ENV HELM=/helm
-
-ENV KUBERNETES_SCHEMA_PATH=/kubernetes-json-schema
 
 ENTRYPOINT ["/helm-kubeconform-action"]

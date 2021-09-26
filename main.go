@@ -27,7 +27,6 @@ type Path struct {
 
 type Config struct {
 	Strict                bool   `env:"KUBECONFORM_STRICT" envDefault:"true"`
-	KubernetesSchemaPath  Path   `env:"KUBERNETES_SCHEMA_PATH"`
 	AdditionalSchemaPaths []Path `env:"ADDITIONAL_SCHEMA_PATHS" envSeparator:"\n"`
 	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
 	Kubeconform           Path   `env:"KUBECONFORM"`
@@ -49,15 +48,13 @@ func main() {
 		return
 	}
 
-	kubernetesSchemaPath := filepath.Join(cfg.KubernetesSchemaPath.path, "{{ .NormalizedKubernetesVersion }}-standalone{{ .StrictSuffix }}", "{{ .ResourceKind }}{{ .KindSuffix }}.json")
-
 	additionalSchemaPaths := []string{}
 
 	for _, path := range cfg.AdditionalSchemaPaths {
 		additionalSchemaPaths = append(additionalSchemaPaths, path.path)
 	}
 
-	feErr := run(cfg, kubernetesSchemaPath, additionalSchemaPaths)
+	feErr := run(cfg, additionalSchemaPaths)
 
 	if feErr != nil {
 		log.Fatal().Stack().Err(feErr).Msgf("Validation failed: %s", feErr)
@@ -65,7 +62,7 @@ func main() {
 	}
 }
 
-func run(cfg Config, kubernetesSchemaPath string, additionalSchemaPaths []string) error {
+func run(cfg Config, additionalSchemaPaths []string) error {
 	return foreachChart(cfg.ChartsDirectory.path, func(base string) error {
 		logger := log.With().Str("chart", filepath.Base(base)).Logger()
 		valuesFiles, err := os.ReadDir(filepath.Join(base, TestsPath))
@@ -90,7 +87,7 @@ func run(cfg Config, kubernetesSchemaPath string, additionalSchemaPaths []string
 			// reimplement its CLI
 			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 			// so instead we shell out to it
-			output, err := runKubeconform(manifests, cfg.Kubeconform.path, kubernetesSchemaPath, cfg.Strict, additionalSchemaPaths)
+			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths)
 
 			fileLogger.Info().Msgf("Output: %s", output)
 
@@ -145,8 +142,8 @@ func helmCommand(path string, directory string, valuesFile string) *exec.Cmd {
 	return exec.Command(path, "template", "release", directory, "-f", valuesFile)
 }
 
-func runKubeconform(manifests bytes.Buffer, path string, kubernetesSchemaPath string, strict bool, additionalSchemaPaths []string) (string, error) {
-	cmd := kubeconformCommand(path, kubernetesSchemaPath, strict, additionalSchemaPaths)
+func runKubeconform(manifests bytes.Buffer, path string, strict bool, additionalSchemaPaths []string) (string, error) {
+	cmd := kubeconformCommand(path, strict, additionalSchemaPaths)
 
 	stdin, err := cmd.StdinPipe()
 
@@ -170,14 +167,14 @@ func runKubeconform(manifests bytes.Buffer, path string, kubernetesSchemaPath st
 	return string(output[:]), err
 }
 
-func kubeconformCommand(path string, kubernetesSchemaPath string, strict bool, additionalSchemaPaths []string) *exec.Cmd {
-	return exec.Command(path, kubeconformArgs(kubernetesSchemaPath, strict, additionalSchemaPaths)...)
+func kubeconformCommand(path string, strict bool, additionalSchemaPaths []string) *exec.Cmd {
+	return exec.Command(path, kubeconformArgs(strict, additionalSchemaPaths)...)
 }
 
-func kubeconformArgs(kubernetesSchemaPath string, strict bool, additionalSchemaPaths []string) []string {
+func kubeconformArgs(strict bool, additionalSchemaPaths []string) []string {
 	args := []string{
 		"-schema-location",
-		kubernetesSchemaPath,
+		"default",
 		"-summary",
 	}
 
