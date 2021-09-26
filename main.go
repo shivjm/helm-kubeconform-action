@@ -31,6 +31,7 @@ type Config struct {
 	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
 	Kubeconform           Path   `env:"KUBECONFORM"`
 	Helm                  Path   `env:"HELM"`
+	UpdateDependencies    bool   `env:"HELM_UPDATE_DEPENDENCIES"`
 }
 
 func main() {
@@ -53,7 +54,7 @@ func main() {
 		additionalSchemaPaths = append(additionalSchemaPaths, path.path)
 	}
 
-	feErr := run(cfg, additionalSchemaPaths)
+	feErr := run(cfg, additionalSchemaPaths, cfg.UpdateDependencies)
 
 	if feErr != nil {
 		log.Fatal().Stack().Err(feErr).Msgf("Validation failed: %s", feErr)
@@ -61,7 +62,7 @@ func main() {
 	}
 }
 
-func run(cfg Config, additionalSchemaPaths []string) error {
+func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) error {
 	return foreachChart(cfg.ChartsDirectory.path, func(base string) error {
 		logger := log.With().Str("chart", filepath.Base(base)).Logger()
 		valuesFiles, err := os.ReadDir(filepath.Join(base, TestsPath))
@@ -75,7 +76,7 @@ func run(cfg Config, additionalSchemaPaths []string) error {
 			name := file.Name()
 			fileLogger := logger.With().Str("file", name).Logger()
 			fileLogger.Printf("Validating chart %s with values file %s...\n", filepath.Base(base), name)
-			manifests, err := runHelm(cfg.Helm.path, base, name)
+			manifests, err := runHelm(cfg.Helm.path, base, name, updateDependencies)
 
 			if err != nil {
 				fileLogger.Printf("Could not run Helm: %s\nStdout: %s\n", err, manifests.String())
@@ -121,10 +122,17 @@ func foreachChart(path string, fn func(path string) error) error {
 	return nil
 }
 
-func runHelm(path string, directory string, valuesFile string) (bytes.Buffer, error) {
-	cmd := helmCommand(path, directory, filepath.Join(directory, TestsPath, valuesFile))
+func runHelm(path string, directory string, valuesFile string, updateDependencies bool) (bytes.Buffer, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+
+	if updateDependencies {
+		if err := runHelmUpdateDependencies(path, directory); err != nil {
+			return stdout, err
+		}
+	}
+
+	cmd := helmTemplateCommand(path, directory, filepath.Join(directory, TestsPath, valuesFile))
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -137,8 +145,15 @@ func runHelm(path string, directory string, valuesFile string) (bytes.Buffer, er
 	return stdout, nil
 }
 
-func helmCommand(path string, directory string, valuesFile string) *exec.Cmd {
+func helmTemplateCommand(path string, directory string, valuesFile string) *exec.Cmd {
 	return exec.Command(path, "template", "release", directory, "-f", valuesFile)
+}
+
+func runHelmUpdateDependencies(path string, directory string) error {
+	log.Info().Msgf("Updating dependencies for %s...", filepath.Base(directory))
+	cmd := exec.Command(path, "dependency", "build")
+	cmd.Dir = directory
+	return cmd.Run()
 }
 
 func runKubeconform(manifests bytes.Buffer, path string, strict bool, additionalSchemaPaths []string) (string, error) {
