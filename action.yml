@@ -1,4 +1,4 @@
-name: "Helm Kubeconform"
+name: "Helm Kubeconform (with schema support)"
 description: "Generate manifests with `helm template` and run `kubeconform` on the results"
 author: "Shiv Jha-Mathur"
 inputs:
