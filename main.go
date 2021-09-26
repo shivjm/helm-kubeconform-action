@@ -31,7 +31,6 @@ type Config struct {
 	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
 	Kubeconform           Path   `env:"KUBECONFORM"`
 	Helm                  Path   `env:"HELM"`
-	OutputFormat          string `env:"OUTPUT_FORMAT"`
 }
 
 func main() {
