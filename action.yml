@@ -3,7 +3,7 @@ description: "Generate manifests with `helm template` and run `kubeconform` on t
 author: "Shiv Jha-Mathur"
 inputs:
   strict:
-    description: "Whether to enable strict mode"
+    description: "Whether to run Kubeconform in strict mode"
     default: "true"
   additionalSchemaPaths:
     description: "Newline-separated list of paths to look for schemas under, including filename template"
