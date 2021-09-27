@@ -1,6 +1,6 @@
 # Helm Kubeconform Action
 
-A flexible GitHub Action to validate Helm charts with Kubeconform.
+A flexible GitHub Action to validate [Helm charts](https://helm.sh/docs/topics/charts/) with [Kubeconform](https://github.com/yannh/kubeconform/).
 
 ## Usage
 
