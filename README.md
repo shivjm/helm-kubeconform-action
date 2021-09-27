@@ -19,7 +19,38 @@ charts
 └───schemas
 ```
 
-You can validate the charts in your workflow like this:
+You can validate the charts in your workflow using the Docker image
+directly, which is quicker but requires adding
+[docker/login-action](https://github.com/docker/login-action) and
+supplying the environment variables yourself:
+
+```yaml
+  kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+      with:
+        fetch-depth: 0
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate and validate releases
+      uses: docker://ghcr.io/shivjm/helm-kubeconform-action:v0.1.0
+      env:
+        ADDITIONAL_SCHEMA_PATHS: |
+          schemas/{{ .ResourceKind }}.json
+        CHARTS_DIRECTORY: "charts"
+        KUBECONFORM_STRICT: "true"
+        HELM_UPDATE_DEPENDENCIES: "true"
+```
+
+Or by using the action, which will rebuild the Docker image every time
+but is easier to use:
 
 ```yaml
 jobs:
@@ -31,7 +62,7 @@ jobs:
         fetch-depth: 0
 
     - name: Generate and validate releases
-      uses: shivjm/helm-kubeconform-action@v0.0.1
+      uses: shivjm/helm-kubeconform-action@v0.1.0
       with:
         additionalSchemaPaths: |
           schemas/{{ .ResourceKind }}.json
