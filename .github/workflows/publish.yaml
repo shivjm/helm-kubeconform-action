@@ -30,6 +30,10 @@ jobs:
             tools.helm.version=${{ env.helm }}
             tools.kubeconform.version=${{ env.kubeconform }}
             kubernetes.schema.version=${{ env.schema }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern=v{{version}}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Build and push
@@ -44,4 +48,5 @@ jobs:
             HELM_VERSION=${{ env.helm }}
             SCHEMA_REVISION=${{ env.schema }}
           labels: ${{ steps.meta.outputs.labels }}
-          push: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}"
+          tags: ${{ steps.meta.outputs.tags }}
+          push: "${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}"
