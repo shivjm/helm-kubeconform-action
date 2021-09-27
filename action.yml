@@ -16,6 +16,10 @@ runs:
   using: "docker"
   image: "Dockerfile"
   env:
+    # ${{ github }} and (obviously) ${{ env }} aren’t available here, so it isn’t possible to
+    # specify a path relative to ${{ github.workspace }} or $GITHUB_WORKSPACE, but
+    # `actions/checkout` will just use the current directory, which the runner will point the Docker
+    # container at as well, and the Go code will resolve paths against that base directory
     KUBECONFORM_STRICT: "${{ inputs.strict }}"
     ADDITIONAL_SCHEMA_PATHS: "${{ inputs.additionalSchemaPaths }}"
     CHARTS_DIRECTORY: "${{ inputs.chartsDirectory }}"
