@@ -49,4 +49,4 @@ jobs:
             SCHEMA_REVISION=${{ env.schema }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
-          push: "${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}"
+          push: "${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}"
