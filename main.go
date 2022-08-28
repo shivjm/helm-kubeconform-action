@@ -50,11 +50,15 @@ func main() {
 		return
 	}
 
+	log.Trace().Msgf("Config: %s", cfg)
+
 	additionalSchemaPaths := []string{}
 
 	for _, path := range cfg.AdditionalSchemaPaths {
 		additionalSchemaPaths = append(additionalSchemaPaths, path.path)
 	}
+
+	log.Trace().Msgf("Additional schema paths: %s", additionalSchemaPaths)
 
 	feErr := run(cfg, additionalSchemaPaths, cfg.UpdateDependencies)
 
@@ -208,6 +212,8 @@ func kubeconformArgs(strict bool, additionalSchemaPaths []string, kubernetesVers
 		args = append(args, "-schema-location")
 		args = append(args, location)
 	}
+
+	log.Trace().Msgf("Arguments: %s", args)
 
 	return args
 }
