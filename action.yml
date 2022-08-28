@@ -18,6 +18,14 @@ inputs:
     description: "Specify the version of kubernetes to validated in Kubeconform"
     default: "master"
     required: false
+  logLevel:
+    description: "Only show log messages at or above level (defined by zerolog)"
+    default: "debug"
+    required: false
+  logJson:
+    description: "Produce JSON log messages"
+    default: "false"
+    required: false
 runs:
   using: "docker"
   image: "Dockerfile"
@@ -31,4 +39,6 @@ runs:
     CHARTS_DIRECTORY: "${{ inputs.chartsDirectory }}"
     HELM_UPDATE_DEPENDENCIES: "true"
     KUBERNETES_VERSION: "${{ inputs.kubernetesVersion }}"
+    LOG_LEVEL: "${{ inputs.logLevel }}"
+    LOG_JSON: "${{ inputs.logJson }}"
   args: []
