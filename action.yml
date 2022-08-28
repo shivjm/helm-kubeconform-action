@@ -5,9 +5,11 @@ inputs:
   strict:
     description: "Whether to run Kubeconform in strict mode"
     default: "true"
+    required: false
   additionalSchemaPaths:
     description: "Newline-separated list of paths to look for schemas under, including filename template"
     default: ""
+    required: false
   chartsDirectory:
     description: "Directory to search for chart directories under"
     default: "charts"
@@ -15,6 +17,7 @@ inputs:
   kubernetesVersion:
     description: "Specify the version of kubernetes to validated in Kubeconform"
     default: "master"
+    required: false
 runs:
   using: "docker"
   image: "Dockerfile"
@@ -28,4 +31,4 @@ runs:
     CHARTS_DIRECTORY: "${{ inputs.chartsDirectory }}"
     HELM_UPDATE_DEPENDENCIES: "true"
     KUBERNETES_VERSION: "${{ inputs.kubernetesVersion }}"
-  args: [ ]
+  args: []
