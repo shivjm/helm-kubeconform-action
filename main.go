@@ -34,6 +34,7 @@ type Config struct {
 	Kubeconform           Path   `env:"KUBECONFORM"`
 	Helm                  Path   `env:"HELM"`
 	UpdateDependencies    bool   `env:"HELM_UPDATE_DEPENDENCIES"`
+	LogLevel              string `env:"LOG_LEVEL" envDefault:"debug"`
 }
 
 func main() {
@@ -49,6 +50,15 @@ func main() {
 		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
 		return
 	}
+
+	level, err := zerolog.ParseLevel(cfg.LogLevel)
+
+	if err != nil {
+		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
+		return
+	}
+
+	zerolog.SetGlobalLevel(level)
 
 	log.Trace().Msgf("Config: %s", cfg)
 
