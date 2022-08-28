@@ -30,10 +30,12 @@ type Config struct {
 	Strict                bool   `env:"KUBECONFORM_STRICT" envDefault:"true"`
 	AdditionalSchemaPaths []Path `env:"ADDITIONAL_SCHEMA_PATHS" envSeparator:"\n"`
 	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
-	KubernetesVersion     string `env:"KUBERNETES_VERSION"`
+	KubernetesVersion     string `env:"KUBERNETES_VERSION" envDefault:"master"`
 	Kubeconform           Path   `env:"KUBECONFORM"`
 	Helm                  Path   `env:"HELM"`
 	UpdateDependencies    bool   `env:"HELM_UPDATE_DEPENDENCIES"`
+	LogLevel              string `env:"LOG_LEVEL" envDefault:"debug"`
+	LogJson               bool   `env:"LOG_JSON" envDefault:"true"`
 }
 
 func main() {
@@ -50,11 +52,28 @@ func main() {
 		return
 	}
 
+	if !cfg.LogJson {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
+	}
+
+	level, err := zerolog.ParseLevel(cfg.LogLevel)
+
+	if err != nil {
+		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
+		return
+	}
+
+	zerolog.SetGlobalLevel(level)
+
+	log.Trace().Msgf("Config: %s", cfg)
+
 	additionalSchemaPaths := []string{}
 
 	for _, path := range cfg.AdditionalSchemaPaths {
 		additionalSchemaPaths = append(additionalSchemaPaths, path.path)
 	}
+
+	log.Trace().Msgf("Additional schema paths: %s", additionalSchemaPaths)
 
 	feErr := run(cfg, additionalSchemaPaths, cfg.UpdateDependencies)
 
@@ -208,6 +227,8 @@ func kubeconformArgs(strict bool, additionalSchemaPaths []string, kubernetesVers
 		args = append(args, "-schema-location")
 		args = append(args, location)
 	}
+
+	log.Trace().Msgf("Arguments: %s", args)
 
 	return args
 }

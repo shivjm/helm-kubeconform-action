@@ -29,8 +29,6 @@ supplying the environment variables yourself:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-      with:
-        fetch-depth: 0
 
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v1
@@ -40,7 +38,7 @@ supplying the environment variables yourself:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Generate and validate releases
-      uses: docker://ghcr.io/shivjm/helm-kubeconform-action:v0.1.0
+      uses: docker://ghcr.io/shivjm/helm-kubeconform-action:v0.2.0
       env:
         ADDITIONAL_SCHEMA_PATHS: |
           schemas/{{ .ResourceKind }}.json
@@ -58,11 +56,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-      with:
-        fetch-depth: 0
 
     - name: Generate and validate releases
-      uses: shivjm/helm-kubeconform-action@v0.1.0
+      uses: shivjm/helm-kubeconform-action@v0.2.0
       with:
         additionalSchemaPaths: |
           schemas/{{ .ResourceKind }}.json

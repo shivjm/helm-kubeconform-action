@@ -2,14 +2,13 @@ name: Build and publish to ghcr.io
 
 on:
   - push
-  - pull_request
 
 env:
   image: ghcr.io/shivjm/helm-kubeconform-action
-  go: "1.16.5"
-  helm: "v3.7.0"
+  go: "1.18.3"
+  helm: "v3.9.4"
   schema: "master"
-  kubeconform: "v0.4.11"
+  kubeconform: "v0.4.14"
 
 jobs:
   docker:
