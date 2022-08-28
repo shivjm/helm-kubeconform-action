@@ -15,7 +15,7 @@ inputs:
     default: "charts"
     required: true
   kubernetesVersion:
-    description: "Specify the version of kubernetes to validated in Kubeconform"
+    description: "Version of Kubernetes to validate manifests against"
     default: "master"
     required: false
   logLevel:
