@@ -2,7 +2,6 @@ name: Build and publish to ghcr.io
 
 on:
   - push
-  - pull_request
 
 env:
   image: ghcr.io/shivjm/helm-kubeconform-action
