@@ -30,7 +30,7 @@ type Config struct {
 	Strict                bool   `env:"KUBECONFORM_STRICT" envDefault:"true"`
 	AdditionalSchemaPaths []Path `env:"ADDITIONAL_SCHEMA_PATHS" envSeparator:"\n"`
 	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
-	K8sVersion            string `env:"K8S_VERSION"`
+	KubernetesVersion     string `env:"KUBERNETES_VERSION"`
 	Kubeconform           Path   `env:"KUBECONFORM"`
 	Helm                  Path   `env:"HELM"`
 	UpdateDependencies    bool   `env:"HELM_UPDATE_DEPENDENCIES"`
@@ -89,7 +89,7 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			// reimplement its CLI
 			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 			// so instead we shell out to it
-			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.K8sVersion)
+			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.KubernetesVersion)
 
 			fileLogger.Info().Msgf("Output: %s", output)
 
@@ -158,8 +158,8 @@ func runHelmUpdateDependencies(path string, directory string) error {
 	return cmd.Run()
 }
 
-func runKubeconform(manifests bytes.Buffer, path string, strict bool, additionalSchemaPaths []string, k8sVersion string) (string, error) {
-	cmd := kubeconformCommand(path, strict, additionalSchemaPaths, k8sVersion)
+func runKubeconform(manifests bytes.Buffer, path string, strict bool, additionalSchemaPaths []string, kubernetesVersion string) (string, error) {
+	cmd := kubeconformCommand(path, strict, additionalSchemaPaths, kubernetesVersion)
 
 	stdin, err := cmd.StdinPipe()
 
@@ -183,17 +183,17 @@ func runKubeconform(manifests bytes.Buffer, path string, strict bool, additional
 	return string(output[:]), err
 }
 
-func kubeconformCommand(path string, strict bool, additionalSchemaPaths []string, k8sVersion string) *exec.Cmd {
-	return exec.Command(path, kubeconformArgs(strict, additionalSchemaPaths, k8sVersion)...)
+func kubeconformCommand(path string, strict bool, additionalSchemaPaths []string, kubernetesVersion string) *exec.Cmd {
+	return exec.Command(path, kubeconformArgs(strict, additionalSchemaPaths, kubernetesVersion)...)
 }
 
-func kubeconformArgs(strict bool, additionalSchemaPaths []string, k8sVersion string) []string {
+func kubeconformArgs(strict bool, additionalSchemaPaths []string, kubernetesVersion string) []string {
 	args := []string{
 		"-schema-location",
 		"default",
 		"-summary",
 		"-kubernetes-version",
-		k8sVersion,
+		kubernetesVersion,
 	}
 
 	if strict {
