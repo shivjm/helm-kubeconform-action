@@ -29,8 +29,6 @@ supplying the environment variables yourself:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-      with:
-        fetch-depth: 0
 
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v1
@@ -58,8 +56,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-      with:
-        fetch-depth: 0
 
     - name: Generate and validate releases
       uses: shivjm/helm-kubeconform-action@v0.1.0
