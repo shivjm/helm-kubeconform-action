@@ -35,6 +35,7 @@ type Config struct {
 	Helm                  Path   `env:"HELM"`
 	UpdateDependencies    bool   `env:"HELM_UPDATE_DEPENDENCIES"`
 	LogLevel              string `env:"LOG_LEVEL" envDefault:"debug"`
+	LogJson               bool   `env:"LOG_JSON" envDefault:"true"`
 }
 
 func main() {
@@ -49,6 +50,10 @@ func main() {
 	}); err != nil {
 		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
 		return
+	}
+
+	if !cfg.LogJson {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	}
 
 	level, err := zerolog.ParseLevel(cfg.LogLevel)
