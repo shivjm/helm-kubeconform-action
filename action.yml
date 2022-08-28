@@ -12,6 +12,9 @@ inputs:
     description: "Directory to search for chart directories under"
     default: "charts"
     required: true
+  k8sVersion:
+    description: "Specify the version of k8s to validated in Kubeconform"
+    default: "master"
 runs:
   using: "docker"
   image: "Dockerfile"
@@ -24,4 +27,5 @@ runs:
     ADDITIONAL_SCHEMA_PATHS: "${{ inputs.additionalSchemaPaths }}"
     CHARTS_DIRECTORY: "${{ inputs.chartsDirectory }}"
     HELM_UPDATE_DEPENDENCIES: "true"
+    K8S_VERSION: "${{ inputs.k8sVersion }}"
   args: []
