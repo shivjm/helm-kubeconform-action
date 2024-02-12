@@ -80,7 +80,7 @@ func main() {
 	feErr := run(cfg, additionalSchemaPaths, cfg.UpdateDependencies)
 
 	if feErr != nil {
-		log.Fatal().Stack().Err(feErr).Msgf("Validation failed: %s", feErr)
+		log.Fatal().Stack().Err(feErr).Msg("")
 		return
 	}
 }
@@ -89,7 +89,7 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 	var validationsErrors []error
 	skipRegex := regexp.MustCompile("^" + cfg.RegexSkipDir + "$")
 
-	err := filepath.WalkDir(cfg.ChartsDirectory.path, func(path string, dirent fs.DirEntry, err error) error {
+	filepath.WalkDir(cfg.ChartsDirectory.path, func(path string, dirent fs.DirEntry, err error) error {
 		logger := log.With().Str("path", path).Logger()
 		if err != nil {
 			logger.Warn().Err(err).Msg("skipping path")
@@ -116,11 +116,10 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			if dirent.Name() == TestsPath {
 				return nil
 			}
-			logger.Info().Msg("Validating chart...")
 			manifests, err := runHelm(cfg.Helm.path, chart_dir, dirent.Name(), updateDependencies)
 
 			if err != nil {
-				logger.Err(err).Msgf("Could not run Helm: stdout: %s\n", manifests.String())
+				logger.Err(err).Str("stdout", manifests.String()).Msg("Could not run Helm")
 				return err
 			}
 
@@ -129,7 +128,7 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 			// so instead we shell out to it
 			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.KubernetesVersion)
-			logger.Info().Msgf("Output: %s", output)
+			logger.Err(err).Str("output", output).Msg("")
 			if err != nil {
 				validationsErrors = append(validationsErrors, err)
 			}
@@ -142,9 +141,9 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 	})
 
 	if validationsErrors != nil {
-		return errors.New("")
+		return errors.New("Validation failed")
 	}
-	return err
+	return nil
 }
 
 func runHelm(path string, directory string, valuesFile string, updateDependencies bool) (bytes.Buffer, error) {
@@ -196,12 +195,6 @@ func runKubeconform(manifests bytes.Buffer, path string, strict bool, additional
 	}()
 
 	output, err := cmd.CombinedOutput()
-
-	// whatever the output is, we want to display it, and we want to return the error if there is one
-	if err != nil {
-		log.Printf("Failed to run kubeconform command %s: %s\n", cmd, string(output[:]))
-		return "", err
-	}
 
 	return string(output[:]), err
 }
