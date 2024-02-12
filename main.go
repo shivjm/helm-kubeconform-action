@@ -2,8 +2,7 @@ package main
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,23 +83,38 @@ func main() {
 }
 
 func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) error {
-	return foreachChart(cfg.ChartsDirectory.path, func(base string) error {
-		logger := log.With().Str("chart", filepath.Base(base)).Logger()
-		valuesFiles, err := os.ReadDir(filepath.Join(base, TestsPath))
 
+	err := filepath.WalkDir(cfg.ChartsDirectory.path, func(path string, dirent fs.DirEntry, err error) error {
+		logger := log.With().Str("path", path).Logger()
 		if err != nil {
-			logger.Error().Stack().Err(err).Msgf("Could not open directory %s", base)
-			return err
+			logger.Warn().Err(err).Msg("skipping path")
+			return nil
 		}
 
-		for _, file := range valuesFiles {
-			name := file.Name()
-			fileLogger := logger.With().Str("file", name).Logger()
-			fileLogger.Printf("Validating chart %s with values file %s...\n", filepath.Base(base), name)
-			manifests, err := runHelm(cfg.Helm.path, base, name, updateDependencies)
+		if dirent.IsDir() {
+			return nil
+		}
+
+		if dirent.Name() != "Chart.yaml" && dirent.Name() != "Chart.yml" {
+			return nil
+		}
+
+		chart_dir := filepath.Dir(path)
+		logger = log.With().Str("chart", filepath.Base(chart_dir)).Logger()
+		err = filepath.WalkDir(filepath.Join(chart_dir, TestsPath), func(values_file string, dirent fs.DirEntry, err error) error {
+			logger := logger.With().Str("values", dirent.Name()).Logger()
+			if err != nil {
+				logger.Err(err).Stack().Msg("Could not open directory")
+				return err
+			}
+			if dirent.Name() == TestsPath {
+				return nil
+			}
+			logger.Info().Msg("Validating chart...")
+			manifests, err := runHelm(cfg.Helm.path, chart_dir, dirent.Name(), updateDependencies)
 
 			if err != nil {
-				fileLogger.Printf("Could not run Helm: %s\nStdout: %s\n", err, manifests.String())
+				logger.Err(err).Msgf("Could not run Helm: stdout: %s\n", manifests.String())
 				return err
 			}
 
@@ -109,38 +123,18 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 			// so instead we shell out to it
 			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.KubernetesVersion)
+			logger.Info().Msgf("Output: %s", output)
 
-			fileLogger.Info().Msgf("Output: %s", output)
-
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
-
-func foreachChart(path string, fn func(path string) error) error {
-	files, err := os.ReadDir(path)
-
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		if !file.IsDir() {
-			return errors.New(fmt.Sprintf("Non-directory file in charts directory: %s", file.Name()))
-		}
-
-		p := filepath.Join(path, file.Name())
-
-		if err := fn(p); err != nil {
+			return err
+		})
+		if err != nil {
 			return err
 		}
-	}
 
-	return nil
+		return fs.SkipDir // We processed the chart, so skip its directory
+	})
+
+	return err
 }
 
 func runHelm(path string, directory string, valuesFile string, updateDependencies bool) (bytes.Buffer, error) {
