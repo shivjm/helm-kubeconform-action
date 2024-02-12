@@ -128,7 +128,7 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 			// so instead we shell out to it
 			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.KubernetesVersion)
-			logger.Err(err).Str("output", output).Msg("")
+			logger.Err(err).RawJSON("kubeconform", output).Msg("")
 			if err != nil {
 				validationsErrors = append(validationsErrors, err)
 			}
@@ -180,13 +180,13 @@ func runHelmUpdateDependencies(path string, directory string) error {
 	return cmd.Run()
 }
 
-func runKubeconform(manifests bytes.Buffer, path string, strict bool, additionalSchemaPaths []string, kubernetesVersion string) (string, error) {
+func runKubeconform(manifests bytes.Buffer, path string, strict bool, additionalSchemaPaths []string, kubernetesVersion string) ([]byte, error) {
 	cmd := kubeconformCommand(path, strict, additionalSchemaPaths, kubernetesVersion)
 
 	stdin, err := cmd.StdinPipe()
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	go func() {
@@ -196,7 +196,7 @@ func runKubeconform(manifests bytes.Buffer, path string, strict bool, additional
 
 	output, err := cmd.CombinedOutput()
 
-	return string(output[:]), err
+	return output, err
 }
 
 func kubeconformCommand(path string, strict bool, additionalSchemaPaths []string, kubernetesVersion string) *exec.Cmd {
@@ -210,6 +210,8 @@ func kubeconformArgs(strict bool, additionalSchemaPaths []string, kubernetesVers
 		"-summary",
 		"-kubernetes-version",
 		kubernetesVersion,
+		"-output",
+		"json",
 	}
 
 	if strict {
