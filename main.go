@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/caarlos0/env/v6"
@@ -30,6 +31,7 @@ type Config struct {
 	Strict                bool   `env:"KUBECONFORM_STRICT" envDefault:"true"`
 	AdditionalSchemaPaths []Path `env:"ADDITIONAL_SCHEMA_PATHS" envSeparator:"\n"`
 	ChartsDirectory       Path   `env:"CHARTS_DIRECTORY"`
+	RegexSkipDir          string `env:"REGEX_SKIP_DIR" envDefault:"\.git"`
 	KubernetesVersion     string `env:"KUBERNETES_VERSION" envDefault:"master"`
 	Kubeconform           Path   `env:"KUBECONFORM"`
 	Helm                  Path   `env:"HELM"`
@@ -85,6 +87,7 @@ func main() {
 
 func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) error {
 	var validationsErrors []error
+	skipRegex := regexp.MustCompile("^" + cfg.RegexSkipDir + "$")
 
 	err := filepath.WalkDir(cfg.ChartsDirectory.path, func(path string, dirent fs.DirEntry, err error) error {
 		logger := log.With().Str("path", path).Logger()
@@ -93,8 +96,9 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			return nil
 		}
 
-		if dirent.IsDir() {
-			return nil
+		if dirent.IsDir() && skipRegex.MatchString(dirent.Name()) {
+			logger.Info().Msg("matching skip regex, skipping")
+			return fs.SkipDir
 		}
 
 		if dirent.Name() != "Chart.yaml" && dirent.Name() != "Chart.yml" {

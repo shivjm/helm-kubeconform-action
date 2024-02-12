@@ -14,6 +14,10 @@ inputs:
     description: "Directory to search for chart directories under"
     default: "charts"
     required: true
+  regexSkipDir:
+    description: "Skip search in directories matching this regex"
+    default: "\.git"
+    required: false
   kubernetesVersion:
     description: "Version of Kubernetes to validate manifests against"
     default: "master"
