@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -83,6 +84,7 @@ func main() {
 }
 
 func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) error {
+	var validationsErrors []error
 
 	err := filepath.WalkDir(cfg.ChartsDirectory.path, func(path string, dirent fs.DirEntry, err error) error {
 		logger := log.With().Str("path", path).Logger()
@@ -101,7 +103,7 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 
 		chart_dir := filepath.Dir(path)
 		logger = log.With().Str("chart", filepath.Base(chart_dir)).Logger()
-		err = filepath.WalkDir(filepath.Join(chart_dir, TestsPath), func(values_file string, dirent fs.DirEntry, err error) error {
+		filepath.WalkDir(filepath.Join(chart_dir, TestsPath), func(values_file string, dirent fs.DirEntry, err error) error {
 			logger := logger.With().Str("values", dirent.Name()).Logger()
 			if err != nil {
 				logger.Err(err).Stack().Msg("Could not open directory")
@@ -124,16 +126,20 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			// so instead we shell out to it
 			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.KubernetesVersion)
 			logger.Info().Msgf("Output: %s", output)
+			if err != nil {
+				validationsErrors = append(validationsErrors, err)
+			}
 
-			return err
+			return nil
+
 		})
-		if err != nil {
-			return err
-		}
 
 		return fs.SkipDir // We processed the chart, so skip its directory
 	})
 
+	if validationsErrors != nil {
+		return errors.New("")
+	}
 	return err
 }
 
