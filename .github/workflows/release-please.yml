@@ -38,7 +38,7 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
   build-and-upload:
     needs: [release-please]
-    if: ${{ jobs.release-please.outputs.release_created }}
+    if: ${{ needs.release-please.outputs.release_created }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -52,4 +52,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ jobs.release-please.outputs.tag_name }} ./helm-kubeconform-action*
+          gh release upload ${{ needs.release-please.outputs.tag_name }} ./helm-kubeconform-action*
