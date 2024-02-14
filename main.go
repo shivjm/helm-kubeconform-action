@@ -61,7 +61,7 @@ func main() {
 	level, err := zerolog.ParseLevel(cfg.LogLevel)
 
 	if err != nil {
-		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
+		log.Fatal().Err(err).Msgf("Could not parse log level")
 		return
 	}
 
