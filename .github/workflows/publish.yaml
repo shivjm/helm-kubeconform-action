@@ -5,8 +5,8 @@ on:
 
 env:
   image: ghcr.io/shivjm/helm-kubeconform-action
-  go: "1.18.3"
-  helm: "v3.9.4"
+  go: "1.19.2"
+  helm: "v3.10.1"
   schema: "master"
   kubeconform: "v0.4.14"
 

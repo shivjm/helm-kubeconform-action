@@ -1,6 +1,6 @@
-ARG GO_VERSION=1.16.5
+ARG GO_VERSION
 
-ARG KUBECONFORM_VERSION=v0.4.11
+ARG KUBECONFORM_VERSION
 
 FROM golang:$GO_VERSION-alpine AS builder
 
@@ -14,11 +14,10 @@ FROM ghcr.io/yannh/kubeconform:$KUBECONFORM_VERSION-alpine AS kubeconform
 # for curl & unzip
 FROM alpine:3.14 AS downloader
 
-ARG HELM_VERSION=v3.7.0
+ARG HELM_VERSION
 
 RUN apk add -q --no-cache curl
 
-# https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz
 RUN mkdir /helm && cd /helm && curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xzf -
 
 FROM gcr.io/distroless/static@sha256:912bd2c2b9704ead25ba91b631e3849d940f9d533f0c15cf4fc625099ad145b1

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
@@ -61,7 +62,7 @@ func main() {
 	level, err := zerolog.ParseLevel(cfg.LogLevel)
 
 	if err != nil {
-		log.Fatal().Stack().Err(err).Msgf("%+v\n", err)
+		log.Fatal().Err(err).Msgf("Could not parse log level")
 		return
 	}
 
@@ -128,7 +129,16 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 			// <https://github.com/yannh/kubeconform/blob/dcc77ac3a39ed1fb538b54fab57bbe87d1ece490/cmd/kubeconform/main.go#L47>,
 			// so instead we shell out to it
 			output, err := runKubeconform(manifests, cfg.Kubeconform.path, cfg.Strict, additionalSchemaPaths, cfg.KubernetesVersion)
-			logger.Err(err).RawJSON("kubeconform", output).Msg("")
+
+			// if kubeconform could not be executed, the output will not be
+			// in JSON format
+			var js json.RawMessage
+			if json.Unmarshal([]byte(output), &js) == nil {
+				logger.Err(err).RawJSON("kubeconform", output).Msg("")
+			} else {
+				logger.Err(err).Msgf("kubeconform failed: %s", output)
+			}
+
 			if err != nil {
 				validationsErrors = append(validationsErrors, err)
 			}
@@ -143,6 +153,7 @@ func run(cfg Config, additionalSchemaPaths []string, updateDependencies bool) er
 	if validationsErrors != nil {
 		return errors.New("Validation failed")
 	}
+
 	return nil
 }
 
